@@ -19,7 +19,7 @@ module sd_ctrl(
 			spi_cs_n,
 			spi_tx_en,spi_tx_rdy,spi_rx_en,spi_rx_rdy,
 			spi_tx_db,spi_rx_db,
-			sd_dout,sd_fifowr,sd_rd_en,sdwrad_clr
+			sd_dout,sd_fifowr,sd_rd_en,sd_wr_en,sdwrad_clr
 		);
 
 input clk;		//FPAG输入时钟信号50MHz
@@ -37,6 +37,7 @@ input[7:0] spi_rx_db;	//SPI数据接收寄存器
 output[7:0] sd_dout;	//从SD读出的待放入FIFO数据
 output sd_fifowr;		//sd读出数据写入FIFO使能信号，高有效
 input sd_rd_en;
+input sd_wr_en;
 output sdwrad_clr;		//SDRAM写控制相关信号清零复位信号，高有效
 
 /*参数设置*/
@@ -45,8 +46,9 @@ output sdwrad_clr;		//SDRAM写控制相关信号清零复位信号，高有效
 //要求SD卡使用前最好格式化，然后放入10幅800*600的8位图片
 parameter	P0_ADDR		= 32'h00E0_97A0,//14718880//1C12F4000,//32'h0004_6600,		//第一幅图片P0的首扇区地址
 			P_MEM		= 32'h0000_03C0,//78000,//32'h0007_5800,		//一副800*600的8位图片格式在SD卡中所占用的地址空间
-			LAST_ADDR	= 32'h00E0_9B60;//1C17A4000;//32'h004d_d600;		//10幅图片的最后一个地址
-			
+			LAST_ADDR	= 32'h00E0_9B60,//1C17A4000;//32'h004d_d600;		//10幅图片的最后一个地址
+			P0_WR_ADDR	    = 32'h00F0_97A0,
+			LAST_WR_ADDR	= 32'h00F0_9B60;
 //assign sdwrad_clr = done_5s;
 //------------------------------------------------------
 //SD上电初始化
@@ -87,7 +89,9 @@ parameter	SDINIT_RST	= 4'd0,		//复位等待状态
 			SD_DELAY	= 4'd10,	//sd操作完毕延时等待状态
 			SDINIT_CMD8 = 4'd11,	//sd配置命令，配置一些物理参数
 			SDINIT_CMD58= 4'd12,	//sd状态命令，令SD卡反馈状态
-			SDINIT_CMD58_OK = 4'd13;
+			SDINIT_CMD58_OK = 4'd13,
+			SD_WR_PT	= 4'd14,		//sd读取Partition Table
+			SD_WR_BPB	= 4'd15;		//sd读取启动区状态
 
 //状态转移
 always @(posedge clk or negedge rst_n)
@@ -96,7 +100,7 @@ always @(posedge clk or negedge rst_n)
 
 //状态控制
 always @(sdinit_cstate or retry_rep or delay_done or nclk_cnt 
-			or cmd_rdy or spi_rx_dbr or arg or arg_r or done_5s 
+			or cmd_rdy or spi_rx_dbr or arg or arg_r or arg_wr_r or done_5s 
 			or cmd_ok) begin
 	case(sdinit_cstate)
 		SDINIT_RST: begin
@@ -146,11 +150,27 @@ always @(sdinit_cstate or retry_rep or delay_done or nclk_cnt
 			if(cmd_rdy) sdinit_nstate <= SD_RD_BPB;
 			else sdinit_nstate <= SD_RD_PT;
 		end
+`ifdef JUST_RD		
 		SD_RD_BPB: begin
 			if(cmd_rdy && arg == arg_r+P_MEM-32'h00000001/*0000_0200*/) sdinit_nstate <= SD_DELAY;
 			else sdinit_nstate <= SD_RD_BPB;
+		end		
+`else
+        SD_RD_BPB: begin
+			if(cmd_rdy && arg == arg_r+P_MEM-32'h00000001/*0000_0200*/) sdinit_nstate <= SD_WR_PT;
+			else sdinit_nstate <= SD_RD_BPB;
 		end
-		SD_DELAY: begin
+		SD_WR_PT: begin
+			if(cmd_rdy) sdinit_nstate <= SD_WR_BPB;
+			else sdinit_nstate <= SD_WR_PT;
+		end
+		SD_WR_BPB: begin
+		    if(cmd_rdy && arg == arg_wr_r+P_MEM-32'h00000001)
+			sdinit_nstate <= SD_RD_PT;
+			else sdinit_nstate <= SD_WR_BPB;
+		end
+`endif
+        SD_DELAY: begin
 			if(done_5s) sdinit_nstate <= SD_RD_PT;	//显示下一幅图片
 			else sdinit_nstate <= SD_DELAY;
 		end
@@ -218,12 +238,36 @@ always @(posedge clk or negedge rst_n) begin
 				//if(cmd_rdy) arg <= arg+32'h0000_0200;
 				crc <= 8'hff;	
 			end
+`ifdef JUST_RD			
 			SD_RD_BPB: begin
 				cmd <= 6'd17;	//发送命令CMD17
 				if(cmd_rdy) arg <= arg+32'h00000001;//0000_0200;	//连续读取bmp数据存放的第2-03ABH扇区	 ?????????????
 				crc <= 8'hff;	
+			end			
+`else
+            SD_RD_BPB: begin
+				cmd <= 6'd17;	//发送命令CMD17
+				if(cmd_rdy) begin
+				    if(arg == arg_r + P_MEM - 32'h00000001) arg <= P0_WR_ADDR;
+				    else arg <= arg+32'h00000001;
+				end
+				crc <= 8'hff;	
 			end
-			SD_DELAY: begin
+			SD_WR_PT: begin
+			    cmd <= 6'd24;
+				arg_wr_r <= arg;
+				crc <= 8'hff;	
+            end		
+            SD_WR_BPB: begin	
+                cmd <= 6'd24;
+                if(cmd_rdy) begin
+				    if(arg == arg_wr_r + P_MEM - 32'h00000001) arg <= P0_ADDR;
+				    else arg <= arg+32'h00000001;
+                end
+                crc <= 8'hff;					
+			end
+`endif
+            SD_DELAY: begin
 				cmd <= 6'd0;
 				//arg <= 32'h0004_6600;	//读取bmp数据存放的第1扇区	
 				//arg <= 32'h000b_be00;
@@ -243,7 +287,7 @@ end
 //2009.05.19	添加5.4s定时切换图片指令
 reg[27:0] cnt5s;	//5.4s定时计数器
 reg[31:0] arg_r;	//起始扇区地址寄存器
-
+reg[31:0] arg_wr_r;	//起始扇区地址寄存器(写入)
 	//5.4s计数
 always @(posedge clk or negedge rst_n)
 	if(!rst_n) cnt5s <= 28'd0;
@@ -675,7 +719,7 @@ always @(posedge clk or negedge rst_n) begin
 					end
 			end
 			CMD_RD: begin
-				if(spi_tx_rdy && sd_rd_en) begin
+				if(spi_tx_rdy /*&& sd_rd_en*/) begin
 					spi_cs_nr <= 1'b0;
 					spi_tx_enr <= 1'b0;	
 					spi_rx_enr <= 1'b0;		//SPI接收使能暂时关闭

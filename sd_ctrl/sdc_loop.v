@@ -28,17 +28,70 @@ output spi_cs_n;	//SPI从设备使能信号，由主设备控制
 
 wire[7:0] ffsdc_din;	//SD卡FIFO写入数据
 wire ffsdc_wrreq;		//SD卡FIFO写请求信号，高有效
-wire ffsdc_rdreq;		//SD卡FIFO读请求信号，高有效
+reg ffsdc_rdreq;		//SD卡FIFO读请求信号，高有效
 wire[7:0] ffsdc_dout;	//SD卡FIFO读出数据
 wire[8:0] ffsdc_used;	    //SD卡数据写入缓存FIFO已用存储空间数量
 wire ffsdc_clr;
 
-wire sdc_rd_en;		//FIFO不满，sd卡读使能信号
-wire sdc_wr_en;    
-assign sdc_rd_en = (ffsdc_used < 9'd504);
-assign sdc_wr_en = (ffsdc_used > 9'd16);	//检测FIFO大于8位数据，就启动SD写入
+reg sdc_rd_en;		//FIFO不满，sd卡读使能信号
+reg sdc_wr_en;    
+//assign sdc_rd_en = (ffsdc_used < 9'd504);
+//assign sdc_wr_en = (ffsdc_used > 9'd16);	//检测FIFO大于8位数据，就启动SD写入
 
-//例化SD卡数据读写缓存FIFO模块*/
+reg[3:0] cs_sdwr;	
+reg[3:0] ns_sdwr;
+
+parameter SDWR_IDLE  = 4'd0,
+          SDWR_RD    = 4'd1,
+		  SDWR_WR    = 4'd2;
+		  
+always @(posedge clk or negedge rst_n)
+	if(!rst_n) cs_sdwr <= SDWR_IDLE;
+	else cs_sdwr <= ns_sdwr;	
+
+always @(cs_sdwr or ffsdc_used)	
+    case(cs_sdwr)
+	    SDWR_IDLE: begin
+            if(ffsdc_used == 9'd0) ns_sdwr = SDWR_RD;		
+            else ns_sdwr = SDWR_IDLE;			
+		end
+		SDWR_RD: begin
+		    if(ffsdc_used == 9'd511) ns_sdwr = SDWR_WR;
+			else ns_sdwr = SDWR_RD;
+		end
+		SDWR_WR: begin
+		    if(ffsdc_used == 9'd0) ns_sdwr = SDWR_RD;
+			else ns_sdwr = SDWR_WR;
+		end
+		default: cs_sdwr = SDWR_IDLE;
+	endcase
+
+always @(posedge clk or negedge rst_n)
+    if(!rst_n) begin
+			sdc_rd_en <= 1'b0;
+			sdc_wr_en <= 1'b0;
+			ffsdc_rdreq <= 1'b0;
+	    end
+	else
+	    case(ns_sdwr)
+		    SDWR_RD: begin
+			    sdc_rd_en <= 1'b1;
+				sdc_wr_en <= 1'b0;
+				ffsdc_rdreq <= 1'b1;
+			end
+	        SDWR_WR: begin
+                sdc_rd_en <= 1'b0;
+				sdc_wr_en <= 1'b1;			
+				ffsdc_rdreq <= 1'b0;
+			end
+			default: begin
+			    sdc_rd_en <= 1'b0;
+				sdc_wr_en <= 1'b0;
+				ffsdc_rdreq <= 1'b0;
+			end
+		endcase
+	
+//例化SD卡数据读写缓存FIFO模块
 sdc_fifo			sdc_fifo_inst(
 					.aclr(ffsdc_clr),
 					.data(ffsdc_din),
@@ -58,9 +111,10 @@ sdcard_ctrl		uut_sdcartctrl(
 					.spi_mosi(spi_mosi),
 					.spi_clk(spi_clk),
 					.spi_cs_n(spi_cs_n),
-					.sd_dout(fifo232_din),
-					.sd_fifowr(fifo232_wrreq),
-					.sdc_rd_en(sdc_rd_en),//add
+					.sd_dout(ffsdc_din),
+					.sd_fifowr(ffsdc_wrreq),
+					.sd_rd_en(sdc_rd_en),//add
+					.sd_wr_en(sdc_wr_en),
 					.sdwrad_clr(ffsdc_clr)
 				);
 				

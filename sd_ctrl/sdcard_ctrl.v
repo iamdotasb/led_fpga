@@ -17,7 +17,7 @@
 module sdcard_ctrl(
 			clk,rst_n,
 			spi_miso,spi_mosi,spi_clk,spi_cs_n,
-			sd_dout,sd_fifowr,sd_rd_en,sdwrad_clr
+			sd_dout,sd_fifowr,sd_rd_en,sd_wr_en,sdwrad_clr
 			);
 
 input clk;		//FPAG输入时钟信号50MHz
@@ -31,6 +31,7 @@ output spi_cs_n;	//SPI从设备使能信号，由主设备控制
 output[7:0] sd_dout;	//从SD读出的待放入FIFO数据
 output sd_fifowr;		//sd读出数据写入FIFO使能信号，高有效
 input sd_rd_en;
+input sd_wr_en;
 output sdwrad_clr;		//SDRAM写控制相关信号清零复位信号，高有效
 
 //output[3:0] led;	//调试使用
@@ -74,6 +75,7 @@ sd_ctrl			uut_sdctrl(
 					.sd_dout(sd_dout),
 					.sd_fifowr(sd_fifowr),
 					.sd_rd_en(sd_rd_en),
+					.sd_wr_en(sd_wr_en),
 					.sdwrad_clr(sdwrad_clr)
 				);
 
