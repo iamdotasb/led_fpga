@@ -8,7 +8,7 @@
 // Project Name	: Fgpa_led
 // Target Device: Cyclone EP1C3T144C8 
 // Tool versions: Quartus II 8.1
-// Description	: ¸Ã¹¤³ÌÓÃÓÚsdcard×´Ì¬»ú
+// Description	: è¯¥å·¥ç¨‹ç”¨äºsdcardçŠ¶æ€æœº
 //					
 // Revision		: V1.0
 // Additional Comments	:  
@@ -19,107 +19,168 @@ module sd_ctrl(
 			spi_cs_n,
 			spi_tx_en,spi_tx_rdy,spi_rx_en,spi_rx_rdy,
 			spi_tx_db,spi_rx_db,
-			sd_dout,sd_fifowr,sd_rd_en,sd_wr_en,sdwrad_clr
+			sd_dout,sd_fifowr,sd_rd_en,sd_wr_en,sdwrad_clr,
+			ff_din,sd_test
 		);
 
-input clk;		//FPAGÊäÈëÊ±ÖÓĞÅºÅ50MHz
-input rst_n;	//FPGAÊäÈë¸´Î»ĞÅºÅ
+input clk;		//FPAGè¾“å…¥æ—¶é’Ÿä¿¡å·50MHz
+input rst_n;	//FPGAè¾“å…¥å¤ä½ä¿¡å·
 
-output spi_cs_n;	//SPI´ÓÉè±¸Ê¹ÄÜĞÅºÅ£¬ÓÉÖ÷Éè±¸¿ØÖÆ
+output spi_cs_n;	//SPIä»è®¾å¤‡ä½¿èƒ½ä¿¡å·ï¼Œç”±ä¸»è®¾å¤‡æ§åˆ¶
 
-output spi_tx_en;		//SPIÊı¾İ·¢ËÍÊ¹ÄÜĞÅºÅ£¬¸ßÓĞĞ§
-input spi_tx_rdy;		//SPIÊı¾İ·¢ËÍÍê³É±êÖ¾Î»£¬¸ßÓĞĞ§
-output spi_rx_en;		//SPIÊı¾İ½ÓÊÕÊ¹ÄÜĞÅºÅ£¬¸ßÓĞĞ§
-input spi_rx_rdy;		//SPIÊı¾İ½ÓÊÕÍê³É±êÖ¾Î»£¬¸ßÓĞĞ§
-output[7:0] spi_tx_db;	//SPIÊı¾İ·¢ËÍ¼Ä´æÆ÷
-input[7:0] spi_rx_db;	//SPIÊı¾İ½ÓÊÕ¼Ä´æÆ÷
+output spi_tx_en;		//SPIæ•°æ®å‘é€ä½¿èƒ½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ
+input spi_tx_rdy;		//SPIæ•°æ®å‘é€å®Œæˆæ ‡å¿—ä½ï¼Œé«˜æœ‰æ•ˆ
+output spi_rx_en;		//SPIæ•°æ®æ¥æ”¶ä½¿èƒ½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ
+input spi_rx_rdy;		//SPIæ•°æ®æ¥æ”¶å®Œæˆæ ‡å¿—ä½ï¼Œé«˜æœ‰æ•ˆ
+output[7:0] spi_tx_db;	//SPIæ•°æ®å‘é€å¯„å­˜å™¨
+input[7:0] spi_rx_db;	//SPIæ•°æ®æ¥æ”¶å¯„å­˜å™¨
 
-output[7:0] sd_dout;	//´ÓSD¶Á³öµÄ´ı·ÅÈëFIFOÊı¾İ
-output sd_fifowr;		//sd¶Á³öÊı¾İĞ´ÈëFIFOÊ¹ÄÜĞÅºÅ£¬¸ßÓĞĞ§
+output[7:0] sd_dout;	//ä»SDè¯»å‡ºçš„å¾…æ”¾å…¥FIFOæ•°æ®
+output sd_fifowr;		//sdè¯»å‡ºæ•°æ®å†™å…¥FIFOä½¿èƒ½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ
 input sd_rd_en;
 input sd_wr_en;
-output sdwrad_clr;		//SDRAMĞ´¿ØÖÆÏà¹ØĞÅºÅÇåÁã¸´Î»ĞÅºÅ£¬¸ßÓĞĞ§
+output sdwrad_clr;		//SDRAMå†™æ§åˆ¶ç›¸å…³ä¿¡å·æ¸…é›¶å¤ä½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ
 
-/*²ÎÊıÉèÖÃ*/
-//ÓÉÓÚ²»Í¬µÄSD¿¨ÎÄ¼şÏµÍ³ÓĞ¿ÉÄÜÎªFAT16/32£¬´æ´¢Á¿´óĞ¡Ò²ÓĞ¿ÉÄÜ²»Í¬£¬ÕÕ³ÉÁËÆäÊı¾İµØÖ·µÄ²»Í¬
-//¸Ã¹¤³ÌÃ»ÓĞ¶ÔÎÄ¼şÏµÍ³¹ÜÀí×öÉè¼Æ£¬ËùÒÔĞèÒª´ó¼ÒÔÚwinhexÏÂ¶Á³öËùÊ¹ÓÃµÄSD¿¨µÄÒÔÏÂ²ÎÊıºó½øĞĞÉèÖÃ
-//ÒªÇóSD¿¨Ê¹ÓÃÇ°×îºÃ¸ñÊ½»¯£¬È»ºó·ÅÈë10·ù800*600µÄ8Î»Í¼Æ¬
-parameter	P0_ADDR		= 32'h00E0_97A0,//14718880//1C12F4000,//32'h0004_6600,		//µÚÒ»·ùÍ¼Æ¬P0µÄÊ×ÉÈÇøµØÖ·
-			P_MEM		= 32'h0000_03C0,//78000,//32'h0007_5800,		//Ò»¸±800*600µÄ8Î»Í¼Æ¬¸ñÊ½ÔÚSD¿¨ÖĞËùÕ¼ÓÃµÄµØÖ·¿Õ¼ä
-			LAST_ADDR	= 32'h00E0_9B60,//1C17A4000;//32'h004d_d600;		//10·ùÍ¼Æ¬µÄ×îºóÒ»¸öµØÖ·
-			P0_WR_ADDR	    = 32'h00F0_97A0,
-			LAST_WR_ADDR	= 32'h00F0_9B60;
+input[7:0] ff_din;
+output reg sd_test;
+
+/*å‚æ•°è®¾ç½®*/
+//ç”±äºä¸åŒçš„SDå¡æ–‡ä»¶ç³»ç»Ÿæœ‰å¯èƒ½ä¸ºFAT16/32ï¼Œå­˜å‚¨é‡å¤§å°ä¹Ÿæœ‰å¯èƒ½ä¸åŒï¼Œç…§æˆäº†å…¶æ•°æ®åœ°å€çš„ä¸åŒ
+//è¯¥å·¥ç¨‹æ²¡æœ‰å¯¹æ–‡ä»¶ç³»ç»Ÿç®¡ç†åšè®¾è®¡ï¼Œæ‰€ä»¥éœ€è¦å¤§å®¶åœ¨winhexä¸‹è¯»å‡ºæ‰€ä½¿ç”¨çš„SDå¡çš„ä»¥ä¸‹å‚æ•°åè¿›è¡Œè®¾ç½®
+//è¦æ±‚SDå¡ä½¿ç”¨å‰æœ€å¥½æ ¼å¼åŒ–ï¼Œç„¶åæ”¾å…¥10å¹…800*600çš„8ä½å›¾ç‰‡
+parameter	P0_ADDR		= 32'hEC_8000,//14718880//1C12F4000,//32'h0004_6600,		//ç¬¬ä¸€å¹…å›¾ç‰‡P0çš„é¦–æ‰‡åŒºåœ°å€
+			P_MEM		= 32'h7_8000,//32'h0007_5800,		//ä¸€å‰¯800*600çš„8ä½å›¾ç‰‡æ ¼å¼åœ¨SDå¡ä¸­æ‰€å ç”¨çš„åœ°å€ç©ºé—´
+			LAST_ADDR	= 32'hF4_0000,//1C17A4000;//32'h004d_d600;		//10å¹…å›¾ç‰‡çš„æœ€åä¸€ä¸ªåœ°å€
+			P0_WR_ADDR	    = 32'hF4_0000,
+			LAST_WR_ADDR	= 32'hFB_8000;
 //assign sdwrad_clr = done_5s;
 //------------------------------------------------------
-//SDÉÏµç³õÊ¼»¯
-//	1. ÊÊµ±ÑÓÊ±µÈ´ıSD¾ÍĞ÷
-//	2. ·¢ËÍ74+¸öspi_clk£¬ÇÒ±£³Öspi_cs_n=1,spi_mosi=1 
-//	3. ·¢ËÍCMD0ÃüÁî²¢µÈ´ıÏìÓ¦R1=8'h01: ½«¿¨¸´Î»µ½IDLE×´Ì¬
-//	4. ·¢ËÍCMD1ÃüÁî²¢µÈ´ıÏìÓ¦R1=8'h00: ¼¤»î¿¨µÄ³õÊ¼»¯½ø³Ì
-//	5. ·¢ËÍCMD16ÃüÁî²¢µÈ´ıÏìÓ¦R1=8'h00: ÉèÖÃÒ»´Î¶ÁĞ´BLOCKµÄ³¤¶ÈÎª512¸ö×Ö½Ú
-//SDÊı¾İ¶ÁÈ¡²Ù×÷
-//	1. ·¢ËÍÃüÁîCMD17
-//	2. ½ÓÊÕ¶ÁÊı¾İÆğÊ¼ÁîÅÆ0xfe
-//	3. ¶ÁÈ¡512ByteÊı¾İÒÔ¼°2ByteµÄCRC
+//SDä¸Šç”µåˆå§‹åŒ–
+//	1. é€‚å½“å»¶æ—¶ç­‰å¾…SDå°±ç»ª
+//	2. å‘é€74+ä¸ªspi_clkï¼Œä¸”ä¿æŒspi_cs_n=1,spi_mosi=1 
+//	3. å‘é€CMD0å‘½ä»¤å¹¶ç­‰å¾…å“åº”R1=8'h01: å°†å¡å¤ä½åˆ°IDLEçŠ¶æ€
+//	4. å‘é€CMD1å‘½ä»¤å¹¶ç­‰å¾…å“åº”R1=8'h00: æ¿€æ´»å¡çš„åˆå§‹åŒ–è¿›ç¨‹
+//	5. å‘é€CMD16å‘½ä»¤å¹¶ç­‰å¾…å“åº”R1=8'h00: è®¾ç½®ä¸€æ¬¡è¯»å†™BLOCKçš„é•¿åº¦ä¸º512ä¸ªå­—èŠ‚
+//SDæ•°æ®è¯»å–æ“ä½œ
+//	1. å‘é€å‘½ä»¤CMD17
+//	2. æ¥æ”¶è¯»æ•°æ®èµ·å§‹ä»¤ç‰Œ0xfe
+//	3. è¯»å–512Byteæ•°æ®ä»¥åŠ2Byteçš„CRC
 //------------------------------------------------------
-//ÉÏµçÑÓÊ±µÈ´ı¼ÆÊı
-reg[10:0] delay_cnt;	//10bitÑÓÊ±¼ÆÊıÆ÷£¬¼ÆÊıµ½1000¼´40ns*1000=40us	
+//ä¸Šç”µå»¶æ—¶ç­‰å¾…è®¡æ•°
+reg[10:0] delay_cnt;	//10bitå»¶æ—¶è®¡æ•°å™¨ï¼Œè®¡æ•°åˆ°1000å³40ns*1000=40us	
 
 always @(posedge clk or negedge rst_n)
 	if(!rst_n) delay_cnt <= 11'd0;
 	else if(delay_cnt < 11'd2000) delay_cnt <= delay_cnt+1'b1;
 	
-wire delay_done = (delay_cnt == 11'd2000);	//40usÑÓÊ±Ê±¼äÍê³É±êÖ¾Î»£¬¸ßÓĞĞ§	
+wire delay_done = (delay_cnt == 11'd2000);	//40uså»¶æ—¶æ—¶é—´å®Œæˆæ ‡å¿—ä½ï¼Œé«˜æœ‰æ•ˆ	
 
 //------------------------------------------------------
-//sd×´Ì¬»ú¿ØÖÆ
-reg[3:0] sdinit_cstate;		//sd³õÊ¼»¯µ±Ç°×´Ì¬¼Ä´æÆ÷
-reg[3:0] sdinit_nstate;		//sd³õÊ¼»¯ÏÂÒ»×´Ì¬¼Ä´æÆ÷
+//sdçŠ¶æ€æœºæ§åˆ¶
+reg[3:0] sdinit_cstate;		//sdåˆå§‹åŒ–å½“å‰çŠ¶æ€å¯„å­˜å™¨
+reg[3:0] sdinit_nstate;		//sdåˆå§‹åŒ–ä¸‹ä¸€çŠ¶æ€å¯„å­˜å™¨
 
-parameter	SDINIT_RST	= 4'd0,		//¸´Î»µÈ´ı×´Ì¬
-			SDINIT_CLK	= 4'd1,		//74+Ê±ÖÓ²úÉú×´Ì¬
-			SDINIT_CMD0 = 4'd2,		//·¢ËÍCMD0ÃüÁî×´Ì¬
-			SDINIT_CMD55 = 4'd3,	//·¢ËÍCMD55ÃüÁî×´Ì¬
-			SDINIT_ACMD41 = 4'd4,	//·¢ËÍACMD41ÃüÁî×´Ì¬
-			SDINIT_CMD1 = 4'd5,		//·¢ËÍCMD1ÃüÁî×´Ì¬
-			SDINIT_CMD16 = 4'd6,	//·¢ËÍCMD16ÃüÁî×´Ì¬
-			SD_IDLE 	= 4'd7,		//sd³õÊ¼»¯Íê³ÉÕı³£¹¤×÷×´Ì¬
-			SD_RD_PT	= 4'd8,		//sd¶ÁÈ¡Partition Table
-			SD_RD_BPB	= 4'd9,		//sd¶ÁÈ¡Æô¶¯Çø×´Ì¬
-			SD_DELAY	= 4'd10,	//sd²Ù×÷Íê±ÏÑÓÊ±µÈ´ı×´Ì¬
-			SDINIT_CMD8 = 4'd11,	//sdÅäÖÃÃüÁî£¬ÅäÖÃÒ»Ğ©ÎïÀí²ÎÊı
-			SDINIT_CMD58= 4'd12,	//sd×´Ì¬ÃüÁî£¬ÁîSD¿¨·´À¡×´Ì¬
+parameter	SDINIT_RST	= 4'd0,		//å¤ä½ç­‰å¾…çŠ¶æ€
+			SDINIT_CLK	= 4'd1,		//74+æ—¶é’Ÿäº§ç”ŸçŠ¶æ€
+			SDINIT_CMD0 = 4'd2,		//å‘é€CMD0å‘½ä»¤çŠ¶æ€
+			SDINIT_CMD55 = 4'd3,	//å‘é€CMD55å‘½ä»¤çŠ¶æ€
+			SDINIT_ACMD41 = 4'd4,	//å‘é€ACMD41å‘½ä»¤çŠ¶æ€
+			SDINIT_CMD1 = 4'd5,		//å‘é€CMD1å‘½ä»¤çŠ¶æ€
+			SDINIT_CMD16 = 4'd6,	//å‘é€CMD16å‘½ä»¤çŠ¶æ€
+			SD_IDLE 	= 4'd7,		//sdåˆå§‹åŒ–å®Œæˆæ­£å¸¸å·¥ä½œçŠ¶æ€
+			SD_RD_PT	= 4'd8,		//sdè¯»å–Partition Table
+			SD_RD_BPB	= 4'd9,		//sdè¯»å–å¯åŠ¨åŒºçŠ¶æ€
+			SD_DELAY	= 4'd10,	//sdæ“ä½œå®Œæ¯•å»¶æ—¶ç­‰å¾…çŠ¶æ€
+			SDINIT_CMD8 = 4'd11,	//sdé…ç½®å‘½ä»¤ï¼Œé…ç½®ä¸€äº›ç‰©ç†å‚æ•°
+			SDINIT_CMD58= 4'd12,	//sdçŠ¶æ€å‘½ä»¤ï¼Œä»¤SDå¡åé¦ˆçŠ¶æ€
 			SDINIT_CMD58_OK = 4'd13,
-			SD_WR_PT	= 4'd14,		//sd¶ÁÈ¡Partition Table
-			SD_WR_BPB	= 4'd15;		//sd¶ÁÈ¡Æô¶¯Çø×´Ì¬
+			SD_WR_PT	= 4'd14,		//sdè¯»å–Partition Table
+			SD_WR_BPB	= 4'd15;		//sdè¯»å–å¯åŠ¨åŒºçŠ¶æ€
 
-//×´Ì¬×ªÒÆ
+//çŠ¶æ€è½¬ç§»
 always @(posedge clk or negedge rst_n)
 	if(!rst_n) sdinit_cstate <= SDINIT_RST;
 	else sdinit_cstate <= sdinit_nstate;
 
-//×´Ì¬¿ØÖÆ
+//çŠ¶æ€æ§åˆ¶
+wire cmd_rdy;
+reg cmd_ok;
+reg[31:0] arg_r;	//èµ·å§‹æ‰‡åŒºåœ°å€å¯„å­˜å™¨
+reg[31:0] arg_wr_r;	//èµ·å§‹æ‰‡åŒºåœ°å€å¯„å­˜å™¨(å†™å…¥)
+wire done_5s;
+reg[3:0] cmd_cstate;	//å‘é€å‘½ä»¤å½“å‰çŠ¶æ€å¯„å­˜å™¨
+reg[3:0] cmd_nstate;	//å‘é€å‘½ä»¤ä¸‹ä¸€çŠ¶æ€å¯„å­˜å™¨
+
+parameter	CMD_IDLE	= 4'd0,		//æ— å‘½ä»¤å‘é€ï¼Œç­‰å¾…çŠ¶æ€
+			CMD_NCLK	= 4'd1,		//ä¸Šç”µåˆå§‹åŒ–æ—¶éœ€è¦äº§ç”Ÿ74+CLKçŠ¶æ€
+			CMD_CLKS	= 4'd2,		//äº§ç”Ÿ8ä¸ªCLKçŠ¶æ€
+			CMD_STAR	= 4'd3,		//å‘é€èµ·å§‹å­—èŠ‚çŠ¶æ€
+			CMD_ARG1	= 4'd4,		//å‘é€arg[31:24]çŠ¶æ€
+			CMD_ARG2	= 4'd5,		//å‘é€arg[23:16]çŠ¶æ€
+			CMD_ARG3	= 4'd6,		//å‘é€arg[15:8]çŠ¶æ€
+			CMD_ARG4	= 4'd7,		//å‘é€arg[7:0]çŠ¶æ€
+			CMD_END		= 4'd8,		//å‘é€ç»“æŸå­—èŠ‚çŠ¶æ€
+			CMD_RES		= 4'd9,		//æ¥æ”¶å“åº”å­—èŠ‚
+			CMD_CLKE	= 4'd10,	//äº§ç”Ÿ8ä¸ªCLKçŠ¶æ€
+			CMD_RD		= 4'd11,	//è¯»512ByteçŠ¶æ€
+			CMD_DELAY	= 4'd12,	//è¯»å†™æ“ä½œå®Œæˆå»¶æ—¶ç­‰å¾…çŠ¶æ€
+			CMD_CSH 	= 4'd13,	//T0æ—¶åˆ»CSæ‹‰é«˜ï¼Œå¹¶é€8ä¸ªå‘¨æœŸclk
+			CMD_FE		= 4'd14,	//å‘é€FEä»¥ç¤ºå†™å¼€å§‹
+			CMD_WR      = 4'd15;    //å†™512ByteçŠ¶æ€
+
+//------------------------------------------------------
+//SDå‘½ä»¤CMDå‘é€æ§åˆ¶
+//	1. å‘é€8ä¸ªæ—¶é’Ÿè„‰å†²
+//  2. SDå¡ç‰‡é€‰CSæ‹‰ä½,å³ç‰‡é€‰æœ‰æ•ˆ
+//  3. è¿ç»­å‘é€6ä¸ªå­—èŠ‚å‘½ä»¤
+//	4. æ¥æ”¶1ä¸ªå­—èŠ‚å“åº”æ•°æ®
+//	5. SDå¡ç‰‡é€‰CSæ‹‰é«˜,å³å…³é—­SDå¡
+/*		å‘é€æ€»å…±6ä¸ªå­—èŠ‚å‘½ä»¤æ ¼å¼:
+        0 -- start bit 
+        1 -- host
+        bit5-0 --  command
+        bit31-0 -- argument
+        bit6-0 -- CRC7
+        1 -- end bit   
+*/
+//------------------------------------------------------
+//å‘é€sdå‘½ä»¤çŠ¶æ€æœºæ§åˆ¶
+reg[5:0] cmd;	//å‘é€å‘½ä»¤å¯„å­˜å™¨
+reg[31:0] arg;	//å‘é€å‚æ•°å¯„å­˜å™¨
+reg[7:0] crc;	//å‘é€CRCæ ¡éªŒç 
+
+reg spi_cs_nr;	//SPIä»è®¾å¤‡ä½¿èƒ½ä¿¡å·ï¼Œç”±ä¸»è®¾å¤‡æ§åˆ¶
+reg spi_tx_enr;	//SPIæ•°æ®å‘é€ä½¿èƒ½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ
+reg spi_rx_enr;	//SPIæ•°æ®æ¥æ”¶ä½¿èƒ½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ
+reg[7:0] spi_tx_dbr;	//SPIæ•°æ®å‘é€å¯„å­˜å™¨
+reg[7:0] spi_rx_dbr;	//SPIæ•°æ®æ¥æ”¶å¯„å­˜å™¨
+reg[3:0] nclk_cnt;		//74+CLKå‘é€å‘¨æœŸè®¡æ•°å™¨
+reg[7:0] wait_cnt8;		//å‘½ä»¤æ“ä½œé—´éš”ç­‰å¾…è®¡æ•°å™¨
+reg[9:0] cnt512;	//è¯»å–512Bè®¡æ•°å™¨
+reg[11:0] retry_rep;		//é‡å¤è¯»å–responeè®¡æ•°å™¨
+reg[7:0] retry_cmd;		//é‡å¤å½“å‰å‘½ä»¤è®¡æ•°å™¨
+			
 always @(sdinit_cstate or retry_rep or delay_done or nclk_cnt 
 			or cmd_rdy or spi_rx_dbr or arg or arg_r or arg_wr_r or done_5s 
 			or cmd_ok) begin
 	case(sdinit_cstate)
 		SDINIT_RST: begin
-			if(delay_done) sdinit_nstate <= SDINIT_CLK;	//ÉÏµçºó40usÑÓÊ±Íê³É£¬½øÈë74+CLK×´Ì¬
-			else sdinit_nstate <= SDINIT_RST;	//µÈ´ıÉÏµçºó40usÑÓÊ±Íê³É
+			if(delay_done) sdinit_nstate <= SDINIT_CLK;	//ä¸Šç”µå40uså»¶æ—¶å®Œæˆï¼Œè¿›å…¥74+CLKçŠ¶æ€
+			else sdinit_nstate <= SDINIT_RST;	//ç­‰å¾…ä¸Šç”µå40uså»¶æ—¶å®Œæˆ
 		end
 		SDINIT_CLK:	begin
-			if(cmd_rdy) sdinit_nstate <= SDINIT_CMD0;	//74+CLKÍê³É
+			if(cmd_rdy) sdinit_nstate <= SDINIT_CMD0;	//74+CLKå®Œæˆ
 			else sdinit_nstate <= SDINIT_CLK;
 		end
 		SDINIT_CMD0: begin
 			if(cmd_rdy && (spi_rx_dbr == 8'h01)) sdinit_nstate <= SDINIT_CMD8;//sdinit_nstate <= SDINIT_CMD55;
 			else sdinit_nstate <= SDINIT_CMD0;
 		end
-		SDINIT_CMD8: begin		//sdhcv2.0ĞÂÔö		
+		SDINIT_CMD8: begin		//sdhcv2.0æ–°å¢		
 			if(cmd_rdy && (cmd_ok == 1'b1)) sdinit_nstate <= SDINIT_CMD58;
 			else sdinit_nstate <= SDINIT_CMD8;
 		end
-		SDINIT_CMD58: begin		//sdhcv2.0ĞÂÔö		
+		SDINIT_CMD58: begin		//sdhcv2.0æ–°å¢		
 			if(cmd_rdy && (cmd_ok == 8'h01)) sdinit_nstate <= SDINIT_CMD55;
 			else sdinit_nstate <= SDINIT_CMD58;
 		end
@@ -128,12 +189,12 @@ always @(sdinit_cstate or retry_rep or delay_done or nclk_cnt
 			else sdinit_nstate <= SDINIT_CMD55;
 		end
 		SDINIT_ACMD41: begin
-			if(retry_rep == 12'hfff) sdinit_nstate <= SDINIT_CMD55;	///////////ÏìÓ¦³¬Ê±£¬·µ»ØIDLEÖØĞÂ·¢ÆğÃüÁî 
+			if(retry_rep == 12'hfff) sdinit_nstate <= SDINIT_CMD55;	///////////å“åº”è¶…æ—¶ï¼Œè¿”å›IDLEé‡æ–°å‘èµ·å‘½ä»¤ 
 			else if(cmd_rdy && spi_rx_dbr != 8'h00) sdinit_nstate <= SDINIT_CMD55; 
 			else if(cmd_rdy && spi_rx_dbr == 8'h00) sdinit_nstate <= SDINIT_CMD58_OK;
 			else sdinit_nstate <= SDINIT_ACMD41;	
 		end
-		SDINIT_CMD58_OK: begin		//sdhcv2.0ĞÂÔö		
+		SDINIT_CMD58_OK: begin		//sdhcv2.0æ–°å¢		
 			if(cmd_rdy && (cmd_ok == 8'h01)) sdinit_nstate <= SD_IDLE;
 			else sdinit_nstate <= SDINIT_CMD58_OK;
 		end
@@ -152,12 +213,12 @@ always @(sdinit_cstate or retry_rep or delay_done or nclk_cnt
 		end
 `ifdef JUST_RD		
 		SD_RD_BPB: begin
-			if(cmd_rdy && arg == arg_r+P_MEM-32'h00000001/*0000_0200*/) sdinit_nstate <= SD_DELAY;
+			if(cmd_rdy && arg == arg_r+P_MEM-32'h0000_0200) sdinit_nstate <= SD_DELAY;
 			else sdinit_nstate <= SD_RD_BPB;
 		end		
 `else
         SD_RD_BPB: begin
-			if(cmd_rdy && arg == arg_r+P_MEM-32'h00000001/*0000_0200*/) sdinit_nstate <= SD_WR_PT;
+			if(cmd_rdy && arg == arg_r+P_MEM-32'h0000_0200) sdinit_nstate <= SD_WR_PT;
 			else sdinit_nstate <= SD_RD_BPB;
 		end
 		SD_WR_PT: begin
@@ -165,32 +226,33 @@ always @(sdinit_cstate or retry_rep or delay_done or nclk_cnt
 			else sdinit_nstate <= SD_WR_PT;
 		end
 		SD_WR_BPB: begin
-		    if(cmd_rdy && arg == arg_wr_r+P_MEM-32'h00000001)
+		    if(cmd_rdy && arg == arg_wr_r+P_MEM-32'h0000_0200)
 			sdinit_nstate <= SD_RD_PT;
 			else sdinit_nstate <= SD_WR_BPB;
 		end
 `endif
         SD_DELAY: begin
-			if(done_5s) sdinit_nstate <= SD_RD_PT;	//ÏÔÊ¾ÏÂÒ»·ùÍ¼Æ¬
+			if(done_5s) sdinit_nstate <= SD_RD_PT;	//æ˜¾ç¤ºä¸‹ä¸€å¹…å›¾ç‰‡
 			else sdinit_nstate <= SD_DELAY;
 		end
 	default: sdinit_nstate <= SDINIT_RST;
 	endcase
 end
 
-//Êı¾İ¿ØÖÆ
+//æ•°æ®æ§åˆ¶
 always @(posedge clk or negedge rst_n) begin
 	if(!rst_n) begin
-			cmd <= 6'd0;	//·¢ËÍÃüÁî¼Ä´æÆ÷
-			arg <= 32'd0;	//·¢ËÍ²ÎÊı¼Ä´æÆ÷
-			crc <= 8'd0;	//·¢ËÍCRCĞ£ÑéÂë
+			cmd <= 6'd0;	//å‘é€å‘½ä»¤å¯„å­˜å™¨
+			arg <= 32'd0;	//å‘é€å‚æ•°å¯„å­˜å™¨
+			crc <= 8'd0;	//å‘é€CRCæ ¡éªŒç 
+			//sd_test <= 1'b1;
 		end
 	else
 		case(sdinit_nstate)
 			SDINIT_CMD0: begin
-				cmd <= 6'd0;	//·¢ËÍÃüÁî¼Ä´æÆ÷CMD0
-				arg <= 32'h00000000;	//·¢ËÍ²ÎÊı¼Ä´æÆ÷	
-				crc <= 8'h95;	//·¢ËÍCMD0 CRCĞ£ÑéÂë				
+				cmd <= 6'd0;	//å‘é€å‘½ä»¤å¯„å­˜å™¨CMD0
+				arg <= 32'h00000000;	//å‘é€å‚æ•°å¯„å­˜å™¨	
+				crc <= 8'h95;	//å‘é€CMD0 CRCæ ¡éªŒç 				
 			end		
 			SDINIT_CMD8: begin
 				cmd <= 6'd8;
@@ -208,48 +270,49 @@ always @(posedge clk or negedge rst_n) begin
 				crc <= 8'h01;
 			end
 			SDINIT_CMD55: begin
-				cmd <= 6'd55;	//·¢ËÍÃüÁî¼Ä´æÆ÷CMD55
-				arg <= 32'h00000000;	//·¢ËÍ²ÎÊı¼Ä´æÆ÷
-				crc <= 8'hff;	//·¢ËÍCRCĞ£ÑéÂë		
+				cmd <= 6'd55;	//å‘é€å‘½ä»¤å¯„å­˜å™¨CMD55
+				arg <= 32'h00000000;	//å‘é€å‚æ•°å¯„å­˜å™¨
+				crc <= 8'hff;	//å‘é€CRCæ ¡éªŒç 		
 			end
 			SDINIT_ACMD41: begin
-				cmd <= 6'd41;	//·¢ËÍÃüÁî¼Ä´æÆ÷ACMD41
-				arg <= 32'h40000000;	//·¢ËÍ²ÎÊı¼Ä´æÆ÷
-				crc <= 8'hff;	//·¢ËÍCRCĞ£ÑéÂë		
+				cmd <= 6'd41;	//å‘é€å‘½ä»¤å¯„å­˜å™¨ACMD41
+				arg <= 32'h40000000;	//å‘é€å‚æ•°å¯„å­˜å™¨
+				crc <= 8'hff;	//å‘é€CRCæ ¡éªŒç 		
 			end	
 			SDINIT_CMD1: begin
-				cmd <= 6'd1;	//·¢ËÍÃüÁî¼Ä´æÆ÷
-				arg <= 32'd0;	//·¢ËÍ²ÎÊı¼Ä´æÆ÷
-				//crc <= 8'hff;	//·¢ËÍCRCĞ£ÑéÂë					
+				cmd <= 6'd1;	//å‘é€å‘½ä»¤å¯„å­˜å™¨
+				arg <= 32'd0;	//å‘é€å‚æ•°å¯„å­˜å™¨
+				//crc <= 8'hff;	//å‘é€CRCæ ¡éªŒç 					
 			end
 			SDINIT_CMD16: begin
-				cmd <= 6'd16;	//·¢ËÍÃüÁî¼Ä´æÆ÷CMD16
-				arg <= 32'd512;	//·¢ËÍ²ÎÊı¼Ä´æÆ÷512Byte		????????????????????????????
-				crc <= 8'hff;				
+				cmd <= 6'd16;	//å‘é€å‘½ä»¤å¯„å­˜å™¨CMD16
+				arg <= 32'd512;	//å‘é€å‚æ•°å¯„å­˜å™¨512Byte		????????????????????????????
+				crc <= 8'hff;	                			
 			end	
 			SD_IDLE: begin
 				cmd <= 6'd0;	
-				if(cmd_rdy) arg <= P0_ADDR;//32'h0004_6600;	//ËÍbmp0Êı¾İ´æ·ÅµÄµÚ1ÉÈÇøµØÖ·
-				crc <= 8'hff;					
+				if(cmd_rdy) arg <= P0_ADDR;//32'h0004_6600;	//é€bmp0æ•°æ®å­˜æ”¾çš„ç¬¬1æ‰‡åŒºåœ°å€
+				crc <= 8'hff;	 
+                //sd_test <= 1'b0;				
 			end		
 			SD_RD_PT: begin
-				cmd <= 6'd17;	//·¢ËÍÃüÁîCMD17		
+				cmd <= 6'd17;	//å‘é€å‘½ä»¤CMD17		
 				arg_r <= arg;
 				//if(cmd_rdy) arg <= arg+32'h0000_0200;
 				crc <= 8'hff;	
 			end
 `ifdef JUST_RD			
 			SD_RD_BPB: begin
-				cmd <= 6'd17;	//·¢ËÍÃüÁîCMD17
-				if(cmd_rdy) arg <= arg+32'h00000001;//0000_0200;	//Á¬Ğø¶ÁÈ¡bmpÊı¾İ´æ·ÅµÄµÚ2-03ABHÉÈÇø	 ?????????????
+				cmd <= 6'd17;	//å‘é€å‘½ä»¤CMD17
+				if(cmd_rdy) arg <= arg+32'h0000_0200;	//è¿ç»­è¯»å–bmpæ•°æ®å­˜æ”¾çš„ç¬¬2-03ABHæ‰‡åŒº	 ?????????????
 				crc <= 8'hff;	
 			end			
 `else
             SD_RD_BPB: begin
-				cmd <= 6'd17;	//·¢ËÍÃüÁîCMD17
+				cmd <= 6'd17;	//å‘é€å‘½ä»¤CMD17
 				if(cmd_rdy) begin
-				    if(arg == arg_r + P_MEM - 32'h00000001) arg <= P0_WR_ADDR;
-				    else arg <= arg+32'h00000001;
+				    if(arg == arg_r + P_MEM - 32'h0000_0200) arg <= P0_WR_ADDR;
+				    else arg <= arg+32'h0000_0200;
 				end
 				crc <= 8'hff;	
 			end
@@ -257,126 +320,78 @@ always @(posedge clk or negedge rst_n) begin
 			    cmd <= 6'd24;
 				arg_wr_r <= arg;
 				crc <= 8'hff;	
+				//sd_test <= 1'b0;
             end		
             SD_WR_BPB: begin	
                 cmd <= 6'd24;
                 if(cmd_rdy) begin
-				    if(arg == arg_wr_r + P_MEM - 32'h00000001) arg <= P0_ADDR;
-				    else arg <= arg+32'h00000001;
+				    if(arg == arg_wr_r + P_MEM - 32'h0000_0200) arg <= P0_ADDR;
+				    else arg <= arg+32'h0000_0200;
                 end
                 crc <= 8'hff;					
 			end
 `endif
             SD_DELAY: begin
 				cmd <= 6'd0;
-				//arg <= 32'h0004_6600;	//¶ÁÈ¡bmpÊı¾İ´æ·ÅµÄµÚ1ÉÈÇø	
+				//arg <= 32'h0004_6600;	//è¯»å–bmpæ•°æ®å­˜æ”¾çš„ç¬¬1æ‰‡åŒº	
 				//arg <= 32'h000b_be00;
-				if(sdwrad_clr) begin	//ÏÔÊ¾ÏÂÒ»·ùÍ¼Æ¬,¹Ì¶¨10·ùÍ¼Æ¬Ñ­»·ÏÔÊ¾
-					if(arg == LAST_ADDR-32'h00000001/*0000_0200*/) arg <= P0_ADDR;//32'h0004_6600;
+				if(sdwrad_clr) begin	//æ˜¾ç¤ºä¸‹ä¸€å¹…å›¾ç‰‡,å›ºå®š10å¹…å›¾ç‰‡å¾ªç¯æ˜¾ç¤º
+					if(arg == LAST_ADDR-32'h0000_0200) arg <= P0_ADDR;//32'h0004_6600;
 					else arg <= arg_r+P_MEM;
 				end
 			end
 		default: begin
-					cmd <= 6'd0;	//·¢ËÍÃüÁî¼Ä´æÆ÷
-					arg <= 32'd0;	//·¢ËÍ²ÎÊı¼Ä´æÆ÷			
+					cmd <= 6'd0;	//å‘é€å‘½ä»¤å¯„å­˜å™¨
+					arg <= 32'd0;	//å‘é€å‚æ•°å¯„å­˜å™¨			
 				end
 		endcase
 end
 
 //------------------------------------------------------
-//2009.05.19	Ìí¼Ó5.4s¶¨Ê±ÇĞ»»Í¼Æ¬Ö¸Áî
-reg[27:0] cnt5s;	//5.4s¶¨Ê±¼ÆÊıÆ÷
-reg[31:0] arg_r;	//ÆğÊ¼ÉÈÇøµØÖ·¼Ä´æÆ÷
-reg[31:0] arg_wr_r;	//ÆğÊ¼ÉÈÇøµØÖ·¼Ä´æÆ÷(Ğ´Èë)
-	//5.4s¼ÆÊı
+//2009.05.19	æ·»åŠ 5.4så®šæ—¶åˆ‡æ¢å›¾ç‰‡æŒ‡ä»¤
+reg[27:0] cnt5s;	//5.4så®šæ—¶è®¡æ•°å™¨
+
+	//5.4sè®¡æ•°
 always @(posedge clk or negedge rst_n)
 	if(!rst_n) cnt5s <= 28'd0;
 	else if(sdinit_nstate == SD_DELAY) cnt5s <= cnt5s+1'b1;
 	else cnt5s <= 28'd0;
 
 //wire sdwrad_clr = (sdinit_nstate == SD_DELAY);
-wire sdwrad_clr = (cnt5s == 28'hffffff0);	//SDRAMĞ´¿ØÖÆÏà¹ØĞÅºÅÇåÁã¸´Î»ĞÅºÅ£¬¸ßÓĞĞ§
-wire done_5s = (cnt5s == 28'hfffffff);	//5.4s¶¨Ê±µ½£¬¸ßÓĞĞ§Ò»¸öÊ±ÖÓÖÜÆÚ
-
-//------------------------------------------------------
-//SDÃüÁîCMD·¢ËÍ¿ØÖÆ
-//	1. ·¢ËÍ8¸öÊ±ÖÓÂö³å
-//  2. SD¿¨Æ¬Ñ¡CSÀ­µÍ,¼´Æ¬Ñ¡ÓĞĞ§
-//  3. Á¬Ğø·¢ËÍ6¸ö×Ö½ÚÃüÁî
-//	4. ½ÓÊÕ1¸ö×Ö½ÚÏìÓ¦Êı¾İ
-//	5. SD¿¨Æ¬Ñ¡CSÀ­¸ß,¼´¹Ø±ÕSD¿¨
-/*		·¢ËÍ×Ü¹²6¸ö×Ö½ÚÃüÁî¸ñÊ½:
-        0 -- start bit 
-        1 -- host
-        bit5-0 --  command
-        bit31-0 -- argument
-        bit6-0 -- CRC7
-        1 -- end bit   
-*/
-//------------------------------------------------------
-//·¢ËÍsdÃüÁî×´Ì¬»ú¿ØÖÆ
-reg[5:0] cmd;	//·¢ËÍÃüÁî¼Ä´æÆ÷
-reg[31:0] arg;	//·¢ËÍ²ÎÊı¼Ä´æÆ÷
-reg[7:0] crc;	//·¢ËÍCRCĞ£ÑéÂë
-
-reg spi_cs_nr;	//SPI´ÓÉè±¸Ê¹ÄÜĞÅºÅ£¬ÓÉÖ÷Éè±¸¿ØÖÆ
-reg spi_tx_enr;	//SPIÊı¾İ·¢ËÍÊ¹ÄÜĞÅºÅ£¬¸ßÓĞĞ§
-reg spi_rx_enr;	//SPIÊı¾İ½ÓÊÕÊ¹ÄÜĞÅºÅ£¬¸ßÓĞĞ§
-reg[7:0] spi_tx_dbr;	//SPIÊı¾İ·¢ËÍ¼Ä´æÆ÷
-reg[7:0] spi_rx_dbr;	//SPIÊı¾İ½ÓÊÕ¼Ä´æÆ÷
-reg[3:0] nclk_cnt;		//74+CLK·¢ËÍÖÜÆÚ¼ÆÊıÆ÷
-reg[7:0] wait_cnt8;		//ÃüÁî²Ù×÷¼ä¸ôµÈ´ı¼ÆÊıÆ÷
-reg[9:0] cnt512;	//¶ÁÈ¡512B¼ÆÊıÆ÷
-reg[11:0] retry_rep;		//ÖØ¸´¶ÁÈ¡respone¼ÆÊıÆ÷
-reg[7:0] retry_cmd;		//ÖØ¸´µ±Ç°ÃüÁî¼ÆÊıÆ÷
+wire sdwrad_clr = (cnt5s == 28'hffffff0);	//SDRAMå†™æ§åˆ¶ç›¸å…³ä¿¡å·æ¸…é›¶å¤ä½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ
+assign done_5s = (cnt5s == 28'hfffffff);	//5.4så®šæ—¶åˆ°ï¼Œé«˜æœ‰æ•ˆä¸€ä¸ªæ—¶é’Ÿå‘¨æœŸ
 
 assign spi_cs_n = spi_cs_nr;
 assign spi_tx_en = spi_tx_enr;
 assign spi_rx_en = spi_rx_enr;
 assign spi_tx_db = spi_tx_dbr;
 assign sd_dout = spi_rx_dbr;
-	//Ã¿½ÓÊÕÒ»¸ö×Ö½ÚÊı¾İ£¬¸ÃÎ»ÖÃ¸ßÒ»¸öÊ±ÖÓÖÜÆÚ£¬¹²512B
+	//æ¯æ¥æ”¶ä¸€ä¸ªå­—èŠ‚æ•°æ®ï¼Œè¯¥ä½ç½®é«˜ä¸€ä¸ªæ—¶é’Ÿå‘¨æœŸï¼Œå…±512B
 assign sd_fifowr = (spi_rx_rdy & ~spi_rx_enr & (cmd_cstate == CMD_RD) & (cnt512 < 10'd513));
 
-wire cmd_clk = (sdinit_cstate == SDINIT_CLK);	//½øÈëÉÏµç³õÊ¼»¯Ê±µÄ74+CLK²úÉú×´Ì¬±êÖ¾Î»
+wire cmd_clk = (sdinit_cstate == SDINIT_CLK);	//è¿›å…¥ä¸Šç”µåˆå§‹åŒ–æ—¶çš„74+CLKäº§ç”ŸçŠ¶æ€æ ‡å¿—ä½
 wire cmd_en = ((sdinit_cstate == SDINIT_CMD0) | (sdinit_cstate == SDINIT_CMD8) | 
  (sdinit_cstate == SDINIT_CMD58) | (sdinit_cstate == SDINIT_CMD55) | (sdinit_cstate == SDINIT_ACMD41)
 		/*(sdinit_cstate == SDINIT_CMD1) | (sdinit_cstate == SDINIT_CMD16)*/
-		| (sdinit_cstate == SDINIT_CMD58_OK));	//ÃüÁî·¢ËÍÊ¹ÄÜ±êÖ¾Î»,¸ßÓĞĞ§
-wire cmd_rdboot_en = (sdinit_cstate == SD_RD_BPB) | (sdinit_cstate == SD_RD_PT);	//¶ÁÈ¡SDÆô¶¯ÇøÊ¹ÄÜĞÅºÅ£¬¸ßÓĞĞ§	
-wire cmd_rdy = ((cmd_nstate == CMD_CLKE) & spi_tx_rdy & spi_tx_enr);	//ÃüÁî·¢ËÍÍê³É±êÖ¾Î»,¸ßÓĞĞ§
+		| (sdinit_cstate == SDINIT_CMD58_OK));	//å‘½ä»¤å‘é€ä½¿èƒ½æ ‡å¿—ä½,é«˜æœ‰æ•ˆ
+wire cmd_rdboot_en = (sdinit_cstate == SD_RD_BPB) | (sdinit_cstate == SD_RD_PT);	//è¯»å–SDå¯åŠ¨åŒºä½¿èƒ½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ	
+assign cmd_rdy = ((cmd_nstate == CMD_CLKE) & spi_tx_rdy & spi_tx_enr);	//å‘½ä»¤å‘é€å®Œæˆæ ‡å¿—ä½,é«˜æœ‰æ•ˆ
+wire cmd_wr_en = (sdinit_cstate == SD_WR_BPB) | (sdinit_cstate == SD_WR_PT);
 
-reg[3:0] cmd_cstate;	//·¢ËÍÃüÁîµ±Ç°×´Ì¬¼Ä´æÆ÷
-reg[3:0] cmd_nstate;	//·¢ËÍÃüÁîÏÂÒ»×´Ì¬¼Ä´æÆ÷
-parameter	CMD_IDLE	= 4'd0,		//ÎŞÃüÁî·¢ËÍ£¬µÈ´ı×´Ì¬
-			CMD_NCLK	= 4'd1,		//ÉÏµç³õÊ¼»¯Ê±ĞèÒª²úÉú74+CLK×´Ì¬
-			CMD_CLKS	= 4'd2,		//²úÉú8¸öCLK×´Ì¬
-			CMD_STAR	= 4'd3,		//·¢ËÍÆğÊ¼×Ö½Ú×´Ì¬
-			CMD_ARG1	= 4'd4,		//·¢ËÍarg[31:24]×´Ì¬
-			CMD_ARG2	= 4'd5,		//·¢ËÍarg[23:16]×´Ì¬
-			CMD_ARG3	= 4'd6,		//·¢ËÍarg[15:8]×´Ì¬
-			CMD_ARG4	= 4'd7,		//·¢ËÍarg[7:0]×´Ì¬
-			CMD_END		= 4'd8,		//·¢ËÍ½áÊø×Ö½Ú×´Ì¬
-			CMD_RES		= 4'd9,		//½ÓÊÕÏìÓ¦×Ö½Ú
-			CMD_CLKE	= 4'd10,	//²úÉú8¸öCLK×´Ì¬
-			CMD_RD		= 4'd11,	//¶Á512Byte×´Ì¬
-			CMD_DELAY	= 4'd12,	//¶ÁĞ´²Ù×÷Íê³ÉÑÓÊ±µÈ´ı×´Ì¬
-			CMD_CSH 	= 4'd13;	//T0Ê±¿ÌCSÀ­¸ß£¬²¢ËÍ8¸öÖÜÆÚclk
-
-//×´Ì¬×ªÒÆ
+//çŠ¶æ€è½¬ç§»
 always @(posedge clk or negedge rst_n)
 	if(!rst_n) cmd_cstate <= CMD_IDLE;
 	else cmd_cstate <= cmd_nstate;
 
-//×´Ì¬¿ØÖÆ
+//çŠ¶æ€æ§åˆ¶
 always @(cmd_cstate or wait_cnt8 or cmd_clk or cmd_en or spi_tx_rdy or spi_rx_rdy or nclk_cnt or retry_rep
 			or sdinit_cstate or spi_tx_enr or spi_rx_enr or cmd_rdboot_en or cnt512 or spi_rx_dbr
-			or cmd_ok) begin
+			or cmd_ok or cmd_wr_en) begin
 	case(cmd_cstate)
 			CMD_IDLE: begin
 				if(wait_cnt8 == 8'hff)
 					if(cmd_clk) cmd_nstate <= CMD_NCLK;
-					else if(cmd_en | cmd_rdboot_en) cmd_nstate <= CMD_CSH;
+					else if(cmd_en | cmd_rdboot_en | cmd_wr_en) cmd_nstate <= CMD_CSH;
 					else cmd_nstate <= CMD_IDLE; 
 				else cmd_nstate <= CMD_IDLE;
 			end
@@ -409,7 +424,10 @@ always @(cmd_cstate or wait_cnt8 or cmd_clk or cmd_en or spi_tx_rdy or spi_rx_rd
 				else cmd_nstate <= CMD_ARG3;
 			end
 			CMD_ARG4: begin
-				if(spi_tx_rdy && (!spi_tx_enr & !spi_rx_enr)) cmd_nstate <= CMD_END;
+				if(spi_tx_rdy && (!spi_tx_enr & !spi_rx_enr)) begin				
+				    if(!cmd_wr_en) cmd_nstate <= CMD_END;
+					else cmd_nstate <= CMD_RES;
+				end
 				else cmd_nstate <= CMD_ARG4;
 			end
 			CMD_END: begin
@@ -417,26 +435,36 @@ always @(cmd_cstate or wait_cnt8 or cmd_clk or cmd_en or spi_tx_rdy or spi_rx_rd
 				else cmd_nstate <= CMD_END;
 			end
 			CMD_RES: begin
-				if(retry_rep == 12'hfff) cmd_nstate <= CMD_IDLE;	//ÏìÓ¦³¬Ê±£¬·µ»ØIDLEÖØĞÂ·¢ÆğÃüÁî
+				if(retry_rep == 12'hfff) cmd_nstate <= CMD_IDLE;	//å“åº”è¶…æ—¶ï¼Œè¿”å›IDLEé‡æ–°å‘èµ·å‘½ä»¤
 				else if(spi_rx_rdy && (!spi_tx_enr & !spi_rx_enr)) begin
 					case(sdinit_cstate) 		
 						SD_RD_PT,SD_RD_BPB: 
-									if(spi_rx_dbr == 8'hfe) cmd_nstate <= CMD_RD;	//½ÓÊÕµ½RDÃüÁîµÄÆğÊ¼×Ö½Ú8'hfe,Á¢¼´¶ÁÈ¡ºóÃæµÄ512B
+									if(spi_rx_dbr == 8'hfe) cmd_nstate <= CMD_RD;	//æ¥æ”¶åˆ°RDå‘½ä»¤çš„èµ·å§‹å­—èŠ‚8'hfe,ç«‹å³è¯»å–åé¢çš„512B
 									else cmd_nstate <= CMD_RES; 	
 						SDINIT_CMD8:
 									if(cmd_ok == 1'd0) cmd_nstate <= CMD_RES;	
-									else cmd_nstate <= CMD_CLKE;	//²úÉúÕıÈ·ÏìÓ¦,½áÊøµ±Ç°ÃüÁî
+									else cmd_nstate <= CMD_CLKE;	//äº§ç”Ÿæ­£ç¡®å“åº”,ç»“æŸå½“å‰å‘½ä»¤
 						SDINIT_CMD58:
 									if(cmd_ok == 1'd0) cmd_nstate <= CMD_RES;	
-									else cmd_nstate <= CMD_CLKE;	//²úÉúÕıÈ·ÏìÓ¦,½áÊøµ±Ç°ÃüÁî		
+									else cmd_nstate <= CMD_CLKE;	//äº§ç”Ÿæ­£ç¡®å“åº”,ç»“æŸå½“å‰å‘½ä»¤		
 						SDINIT_CMD58_OK:
 									if(cmd_ok == 1'd0) cmd_nstate <= CMD_RES;	
-									else cmd_nstate <= CMD_CLKE;	//²úÉúÕıÈ·ÏìÓ¦,½áÊøµ±Ç°ÃüÁî										
+									else cmd_nstate <= CMD_CLKE;	//äº§ç”Ÿæ­£ç¡®å“åº”,ç»“æŸå½“å‰å‘½ä»¤										
 						SDINIT_CMD0,SDINIT_CMD55,SDINIT_ACMD41,SDINIT_CMD16:
 									if(spi_rx_dbr == 8'hff) cmd_nstate <= CMD_RES;	
-									else cmd_nstate <= CMD_CLKE;	//²úÉúÕıÈ·ÏìÓ¦,½áÊøµ±Ç°ÃüÁî
+									else cmd_nstate <= CMD_CLKE;	//äº§ç”Ÿæ­£ç¡®å“åº”,ç»“æŸå½“å‰å‘½ä»¤
+						SD_WR_PT,SD_WR_BPB:
+						            if(spi_rx_dbr == 8'h00) cmd_nstate <= CMD_FE;
+									else cmd_nstate <= CMD_CLKE;
+									//æ¥æ”¶åˆ°WRå‘½ä»¤çš„åé¦ˆæ•°æ®8'h00è¡¨ç¤ºæ¥æ”¶æˆåŠŸ
 						default: cmd_nstate <= CMD_CLKE;
-						endcase
+						endcase					
+				end
+				else if(spi_tx_rdy && (!spi_tx_enr & !spi_rx_enr)) begin
+				    if(sdinit_cstate == SD_WR_BPB || sdinit_cstate == SD_WR_PT) begin
+					    cmd_nstate <= CMD_WR;
+					end
+					else cmd_nstate <= CMD_CLKE;
 				end
 				else cmd_nstate <= CMD_RES;			
 			end
@@ -445,8 +473,16 @@ always @(cmd_cstate or wait_cnt8 or cmd_clk or cmd_en or spi_tx_rdy or spi_rx_rd
 				else cmd_nstate <= CMD_CLKE;
 			end
 			CMD_RD: begin
-				if(cnt512 == 10'd514) cmd_nstate <= CMD_DELAY;	//Ö±µ½¶ÁÈ¡512×Ö½Ú+2×Ö½ÚCRCÍê³É
+				if(cnt512 == 10'd514) cmd_nstate <= CMD_DELAY;	//ç›´åˆ°è¯»å–512å­—èŠ‚+2å­—èŠ‚CRCå®Œæˆ
 				else cmd_nstate <= CMD_RD;
+			end
+			CMD_FE: begin
+			    if(spi_tx_rdy && (!spi_tx_enr & !spi_rx_enr)) cmd_nstate <= CMD_WR;
+				else cmd_nstate <= CMD_FE;
+			end
+			CMD_WR: begin
+				if(cnt512 == 10'd514) cmd_nstate <= CMD_DELAY;	//ç›´åˆ°å†™å…¥512å­—èŠ‚+2å­—èŠ‚CRCå®Œæˆ
+				else cmd_nstate <= CMD_WR;
 			end
 			CMD_DELAY: begin
 				cmd_nstate <= CMD_CLKE;
@@ -455,23 +491,23 @@ always @(cmd_cstate or wait_cnt8 or cmd_clk or cmd_en or spi_tx_rdy or spi_rx_rd
 		endcase
 end
 
-reg cmd_ok;
 reg[2:0] spi_rx_db_cnt;
 
-//Êı¾İ¿ØÖÆ
+//æ•°æ®æ§åˆ¶
 always @(posedge clk or negedge rst_n) begin
 	if(!rst_n) begin
 			spi_cs_nr <= 1'b1;
 			spi_tx_enr <= 1'b0;
 			spi_rx_enr <= 1'b0;
 			spi_tx_dbr <= 8'hff;
-			nclk_cnt <= 4'd0;	//74+CLK·¢ËÍÖÜÆÚ¼ÆÊıÆ÷ÇåÁã
-			wait_cnt8 <= 8'hff;	//ÃüÁî²Ù×÷¼ä¸ôµÈ´ı¼ÆÊıÆ÷
+			nclk_cnt <= 4'd0;	//74+CLKå‘é€å‘¨æœŸè®¡æ•°å™¨æ¸…é›¶
+			wait_cnt8 <= 8'hff;	//å‘½ä»¤æ“ä½œé—´éš”ç­‰å¾…è®¡æ•°å™¨
 			cnt512 <= 10'd0;
 			retry_rep <= 12'd0;
-			retry_cmd <= 8'd0;	//µ±Ç°CMD·¢ËÍ´ÎÊı¼ÆÊıÆ÷ÇåÁã
+			retry_cmd <= 8'd0;	//å½“å‰CMDå‘é€æ¬¡æ•°è®¡æ•°å™¨æ¸…é›¶
 			spi_rx_db_cnt <= 3'd0;
 			cmd_ok <= 1'b0;			
+			sd_test <= 1'b1;
 		end
 	else 
 		case(cmd_nstate)
@@ -488,10 +524,10 @@ always @(posedge clk or negedge rst_n) begin
 					else if(cmd_en | cmd_rdboot_en) begin
 						cnt512 <= 10'd0;
 						//spi_cs_nr <= 1'b1;
-						spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÀ­¸ß
-						spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»ÔİÊ±¹Ø±Õ
+						spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæ‹‰é«˜
+						spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
 						spi_rx_enr <= 1'b0;
-						spi_tx_dbr <= {2'b01,cmd};	//ÆğÊ¼×Ö½ÚÃüÁîËÍÈËÊı¾İ·¢ËÍ¼Ä´æÆ÷						
+						spi_tx_dbr <= {2'b01,cmd};	//èµ·å§‹å­—èŠ‚å‘½ä»¤é€äººæ•°æ®å‘é€å¯„å­˜å™¨						
 						end*/
 					end
 				else begin
@@ -507,117 +543,117 @@ always @(posedge clk or negedge rst_n) begin
 			end
 			CMD_NCLK: begin
 				if(spi_tx_rdy) begin
-					spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»ÔİÊ±¹Ø±Õ
-					if(spi_tx_enr) nclk_cnt <= nclk_cnt+1'b1;	//74+CLK·¢ËÍÖÜÆÚ¼ÆÊıÆ÷¹¤×÷
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
+					if(spi_tx_enr) nclk_cnt <= nclk_cnt+1'b1;	//74+CLKå‘é€å‘¨æœŸè®¡æ•°å™¨å·¥ä½œ
 					end
 				else if(!spi_tx_enr) begin
-					spi_tx_enr <= 1'b1;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»¿ªÆô				
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯				
 					end			
 			end			
 			CMD_CSH: begin
-				if(spi_tx_rdy) begin/*ÎªÏÂÒ»ÃüÁîCMD_CLKS×ö×¼±¸*/
-					spi_cs_nr <= 1'b0;  //SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»ÔİÊ±¹Ø±Õ
+				if(spi_tx_rdy) begin/*ä¸ºä¸‹ä¸€å‘½ä»¤CMD_CLKSåšå‡†å¤‡*/
+					spi_cs_nr <= 1'b0;  //SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
 					spi_rx_enr <= 1'b0;	
 				end
 				else begin
-					spi_cs_nr <= 1'b1;	//SD¿¨Æ¬Ñ¡CSÀ­¸ß
-					spi_tx_enr <= 1'b1;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»¿ªÆô
+					spi_cs_nr <= 1'b1;	//SDå¡ç‰‡é€‰CSæ‹‰é«˜
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯
 					spi_rx_enr <= 1'b0;		
 				end
 			end
 			CMD_CLKS: begin
 				if(spi_tx_rdy) begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»ÔİÊ±¹Ø±Õ
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
 					spi_rx_enr <= 1'b0;
-					if(spi_tx_enr) spi_tx_dbr <= {2'b01,cmd};	//ÆğÊ¼×Ö½ÚÃüÁîËÍÈËÊı¾İ·¢ËÍ¼Ä´æÆ÷
+					if(spi_tx_enr) spi_tx_dbr <= {2'b01,cmd};	//èµ·å§‹å­—èŠ‚å‘½ä»¤é€äººæ•°æ®å‘é€å¯„å­˜å™¨
 					end
 				else begin
 					//spi_cs_nr <= 1'b1;
 					spi_cs_nr <= 1'b0;
-					spi_tx_enr <= 1'b1;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»¿ªÆô
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯
 					spi_rx_enr <= 1'b0;				
 					end
 			end
 			CMD_STAR: begin
 				if(spi_tx_rdy) begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»ÔİÊ±¹Ø±Õ
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
 					spi_rx_enr <= 1'b0;
-					if(spi_tx_enr) spi_tx_dbr <= arg[31:24];	//arg[31:24]ÃüÁîËÍÈËÊı¾İ·¢ËÍ¼Ä´æÆ÷   ?????
+					if(spi_tx_enr) spi_tx_dbr <= arg[31:24];	//arg[31:24]å‘½ä»¤é€äººæ•°æ®å‘é€å¯„å­˜å™¨   ?????
 					end
 				else begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b1;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»¿ªÆô
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯
 					spi_rx_enr <= 1'b0;					
 					end
 			end
 			CMD_ARG1: begin
 				if(spi_tx_rdy) begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»ÔİÊ±¹Ø±Õ
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
 					spi_rx_enr <= 1'b0;
-					if(spi_tx_enr) spi_tx_dbr <= arg[23:16];	//arg[23:16]ÃüÁîËÍÈËÊı¾İ·¢ËÍ¼Ä´æÆ÷  ??????
+					if(spi_tx_enr) spi_tx_dbr <= arg[23:16];	//arg[23:16]å‘½ä»¤é€äººæ•°æ®å‘é€å¯„å­˜å™¨  ??????
 					end
 				else begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b1;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»¿ªÆô
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯
 					spi_rx_enr <= 1'b0;					
 					end
 			end
 			CMD_ARG2: begin
 				if(spi_tx_rdy) begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»ÔİÊ±¹Ø±Õ
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
 					spi_rx_enr <= 1'b0;
-					if(spi_tx_enr) spi_tx_dbr <= arg[15:8];	//arg[15:8]ÃüÁîËÍÈËÊı¾İ·¢ËÍ¼Ä´æÆ÷     ???????
+					if(spi_tx_enr) spi_tx_dbr <= arg[15:8];	//arg[15:8]å‘½ä»¤é€äººæ•°æ®å‘é€å¯„å­˜å™¨     ???????
 					end
 				else begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b1;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»¿ªÆô
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯
 					spi_rx_enr <= 1'b0;					
 					end
 			end
 			CMD_ARG3: begin
 				if(spi_tx_rdy) begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»ÔİÊ±¹Ø±Õ
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
 					spi_rx_enr <= 1'b0;
-					if(spi_tx_enr) spi_tx_dbr <= arg[7:0];	//arg[7:0]ÃüÁîËÍÈËÊı¾İ·¢ËÍ¼Ä´æÆ÷	 ??????				
+					if(spi_tx_enr) spi_tx_dbr <= arg[7:0];	//arg[7:0]å‘½ä»¤é€äººæ•°æ®å‘é€å¯„å­˜å™¨	 ??????				
 					end
 				else begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b1;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»¿ªÆô
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯
 					spi_rx_enr <= 1'b0;					
 					end
 			end
 			CMD_ARG4: begin
 				if(spi_tx_rdy) begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»ÔİÊ±¹Ø±Õ
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
 					spi_rx_enr <= 1'b0;
-					if(spi_tx_enr) spi_tx_dbr <= crc;	//·¢ËÍCRCĞ£ÑéÂë		//8'h95;	//½ö½ö¶ÔRESETÓĞĞ§µÄCRCĞ§ÑéÂë
+					if(spi_tx_enr) spi_tx_dbr <= crc;	//å‘é€CRCæ ¡éªŒç 		//8'h95;	//ä»…ä»…å¯¹RESETæœ‰æ•ˆçš„CRCæ•ˆéªŒç 
 					end
 				else begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b1;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»¿ªÆô
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯
 					spi_rx_enr <= 1'b0;					
 					end
 			end	
 			CMD_END: begin
 				if(spi_tx_rdy) begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»ÔİÊ±¹Ø±Õ
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
 					spi_rx_enr <= 1'b0;
 					if(spi_tx_enr) begin
 						spi_tx_dbr <= 8'hff;
-						retry_cmd <= retry_cmd+1'b1;	//µ±Ç°CMD·¢ËÍ´ÎÊı¼ÆÊıÆ÷Ôö1
+						retry_cmd <= retry_cmd+1'b1;	//å½“å‰CMDå‘é€æ¬¡æ•°è®¡æ•°å™¨å¢1
 						end
 					end
 				else begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§
-					spi_tx_enr <= 1'b1;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»¿ªÆô
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯
 					spi_rx_enr <= 1'b0;					
 					end
 			end						
@@ -625,10 +661,10 @@ always @(posedge clk or negedge rst_n) begin
 				if(spi_rx_rdy) begin
 					spi_cs_nr <= 1'b0;
 					spi_tx_enr <= 1'b0;	
-					spi_rx_enr <= 1'b0;	//SPI½ÓÊÕÊ¹ÄÜ¹Ø±Õ
+					spi_rx_enr <= 1'b0;	//SPIæ¥æ”¶ä½¿èƒ½å…³é—­
 					spi_tx_dbr <= 8'hff;					
-					spi_rx_dbr <= spi_rx_db;	//½ÓÊÕSPIÏìÓ¦×Ö½ÚÊı¾İ
-					if(sdinit_cstate == SDINIT_CMD8 && !spi_rx_en) begin	/*ÃüÁî½ÓÊÕÅĞ¶Ï*/
+					spi_rx_dbr <= spi_rx_db;	//æ¥æ”¶SPIå“åº”å­—èŠ‚æ•°æ®
+					if(sdinit_cstate == SDINIT_CMD8 && !spi_rx_en) begin	/*å‘½ä»¤æ¥æ”¶åˆ¤æ–­*/
 							if((spi_rx_db_cnt == 3'd0) && (spi_rx_dbr == 8'h01)) begin
 									spi_rx_db_cnt <= 3'd1;												
 								end
@@ -697,22 +733,22 @@ always @(posedge clk or negedge rst_n) begin
 					if(spi_rx_enr) retry_rep <= retry_rep+1'b1;					
 					end
 				else begin
-					spi_cs_nr <= 1'b0;	//SD¿¨Æ¬Ñ¡CSÓĞĞ§	
-					spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜ¿ªÆô	
-					spi_rx_enr <= 1'b1;	//SPI½ÓÊÕÊ¹ÄÜ¿ªÆô				
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ	
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½å¼€å¯	
+					spi_rx_enr <= 1'b1;	//SPIæ¥æ”¶ä½¿èƒ½å¼€å¯				
 					end
 			end
 			CMD_CLKE: begin
 				if(spi_tx_rdy) begin
 					spi_cs_nr <= 1'b1;
-					spi_tx_enr <= 1'b0;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»ÔİÊ±¹Ø±Õ
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
 					spi_rx_enr <= 1'b0;
 					if(spi_tx_enr) spi_tx_dbr <= 8'hff;
-					retry_cmd <= 8'd0;	//µ±Ç°CMD·¢ËÍ´ÎÊı¼ÆÊıÆ÷ÇåÁã
+					retry_cmd <= 8'd0;	//å½“å‰CMDå‘é€æ¬¡æ•°è®¡æ•°å™¨æ¸…é›¶
 					end
 				else begin
 					spi_cs_nr <= 1'b1;
-					spi_tx_enr <= 1'b1;	//SPI·¢ËÍÊ¹ÄÜÓĞĞ§Î»¿ªÆô
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯
 					spi_rx_enr <= 1'b0;
 					spi_tx_dbr <= 8'hff;
 					wait_cnt8 <= 4'd0;
@@ -722,17 +758,45 @@ always @(posedge clk or negedge rst_n) begin
 				if(spi_tx_rdy /*&& sd_rd_en*/) begin
 					spi_cs_nr <= 1'b0;
 					spi_tx_enr <= 1'b0;	
-					spi_rx_enr <= 1'b0;		//SPI½ÓÊÕÊ¹ÄÜÔİÊ±¹Ø±Õ
+					spi_rx_enr <= 1'b0;		//SPIæ¥æ”¶ä½¿èƒ½æš‚æ—¶å…³é—­
 					spi_tx_dbr <= 8'hff;			
-					spi_rx_dbr <= spi_rx_db;	//½ÓÊÕSPIÏìÓ¦×Ö½ÚÊı¾İ
+					spi_rx_dbr <= spi_rx_db;	//æ¥æ”¶SPIå“åº”å­—èŠ‚æ•°æ®
 					if(spi_rx_enr) cnt512 <= cnt512+1'b1;					
 				end
 				else begin
 					spi_cs_nr <= 1'b0;
 					spi_tx_enr <= 1'b0;	
-					spi_rx_enr <= 1'b1;	//SPI½ÓÊÕÊ¹ÄÜ¿ªÆô
+					spi_rx_enr <= 1'b1;	//SPIæ¥æ”¶ä½¿èƒ½å¼€å¯
 					spi_tx_dbr <= 8'hff;							
 				end
+			end
+			CMD_FE: begin
+				if(spi_tx_rdy) begin
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
+					spi_rx_enr <= 1'b0;
+					sd_test <= 1'b0;
+					if(spi_tx_enr) spi_tx_dbr <= 8'hfe;
+					end
+				else begin
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯
+					spi_rx_enr <= 1'b0;					
+					end
+			end
+			CMD_WR: begin
+				if(spi_tx_rdy) begin
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b0;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½æš‚æ—¶å…³é—­
+					spi_rx_enr <= 1'b0;
+					if(spi_tx_enr) spi_tx_dbr <= ff_din;
+					cnt512 <= cnt512+1'b1;	
+					end
+				else begin
+					spi_cs_nr <= 1'b0;	//SDå¡ç‰‡é€‰CSæœ‰æ•ˆ
+					spi_tx_enr <= 1'b1;	//SPIå‘é€ä½¿èƒ½æœ‰æ•ˆä½å¼€å¯
+					spi_rx_enr <= 1'b0;					
+					end
 			end
 			CMD_DELAY: begin
 				spi_cs_nr <= 1'b1;
