@@ -8,7 +8,7 @@
 // Project Name	: Fgpa_led
 // Target Device: Cyclone EP1C3T144C8 
 // Tool versions: Quartus II 8.1
-// Description	: ¸Ã¹¤³ÌÓÃÓÚsdcard¿ØÖÆ
+// Description	: è¯¥å·¥ç¨‹ç”¨äºsdcardæ§åˆ¶
 //					
 // Revision		: V1.0
 // Additional Comments	:  
@@ -17,36 +17,39 @@
 module sdcard_ctrl(
 			clk,rst_n,
 			spi_miso,spi_mosi,spi_clk,spi_cs_n,
-			sd_dout,sd_fifowr,sd_rd_en,sd_wr_en,sdwrad_clr
+			sd_dout,sd_fifowr,sd_rd_en,sd_wr_en,sdwrad_clr,
+            ff_din,sd_test			
 			);
 
-input clk;		//FPAGÊäÈëÊ±ÖÓĞÅºÅ50MHz
-input rst_n;	//FPGAÊäÈë¸´Î»ĞÅºÅ
+input clk;		//FPAGè¾“å…¥æ—¶é’Ÿä¿¡å·50MHz
+input rst_n;	//FPGAè¾“å…¥å¤ä½ä¿¡å·
 
-input spi_miso;		//SPIÖ÷»úÊäÈë´Ó»úÊä³öÊı¾İĞÅºÅ
-output spi_mosi;	//SPIÖ÷»úÊä³ö´Ó»úÊäÈëÊı¾İĞÅºÅ
-output spi_clk;		//SPIÊ±ÖÓĞÅºÅ£¬ÓÉÖ÷»ú²úÉú
-output spi_cs_n;	//SPI´ÓÉè±¸Ê¹ÄÜĞÅºÅ£¬ÓÉÖ÷Éè±¸¿ØÖÆ
+input spi_miso;		//SPIä¸»æœºè¾“å…¥ä»æœºè¾“å‡ºæ•°æ®ä¿¡å·
+output spi_mosi;	//SPIä¸»æœºè¾“å‡ºä»æœºè¾“å…¥æ•°æ®ä¿¡å·
+output spi_clk;		//SPIæ—¶é’Ÿä¿¡å·ï¼Œç”±ä¸»æœºäº§ç”Ÿ
+output spi_cs_n;	//SPIä»è®¾å¤‡ä½¿èƒ½ä¿¡å·ï¼Œç”±ä¸»è®¾å¤‡æ§åˆ¶
 
-output[7:0] sd_dout;	//´ÓSD¶Á³öµÄ´ı·ÅÈëFIFOÊı¾İ
-output sd_fifowr;		//sd¶Á³öÊı¾İĞ´ÈëFIFOÊ¹ÄÜĞÅºÅ£¬¸ßÓĞĞ§
+output[7:0] sd_dout;	//ä»SDè¯»å‡ºçš„å¾…æ”¾å…¥FIFOæ•°æ®
+output sd_fifowr;		//sdè¯»å‡ºæ•°æ®å†™å…¥FIFOä½¿èƒ½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ
 input sd_rd_en;
 input sd_wr_en;
-output sdwrad_clr;		//SDRAMĞ´¿ØÖÆÏà¹ØĞÅºÅÇåÁã¸´Î»ĞÅºÅ£¬¸ßÓĞĞ§
+output sdwrad_clr;		//SDRAMå†™æ§åˆ¶ç›¸å…³ä¿¡å·æ¸…é›¶å¤ä½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ
 
-//output[3:0] led;	//µ÷ÊÔÊ¹ÓÃ
-
-//----------------------------------------------------------------
-wire spi_tx_en;		//SPIÊı¾İ·¢ËÍÊ¹ÄÜĞÅºÅ£¬¸ßÓĞĞ§
-wire spi_tx_rdy;		//SPIÊı¾İ·¢ËÍÍê³É±êÖ¾Î»£¬¸ßÓĞĞ§
-wire spi_rx_en;		//SPIÊı¾İ½ÓÊÕÊ¹ÄÜĞÅºÅ£¬¸ßÓĞĞ§
-wire spi_rx_rdy;		//SPIÊı¾İ½ÓÊÕÍê³É±êÖ¾Î»£¬¸ßÓĞĞ§
-wire[7:0] spi_tx_db;	//SPIÊı¾İ·¢ËÍ¼Ä´æÆ÷
-wire[7:0] spi_rx_db;	//SPIÊı¾İ½ÓÊÕ¼Ä´æÆ÷
-
+input[7:0] ff_din;
+output sd_test;
+//output[3:0] led;	//è°ƒè¯•ä½¿ç”¨
 
 //----------------------------------------------------------------
-//Àı»¯SPI´«Êä¿ØÖÆÄ£¿é
+wire spi_tx_en;		//SPIæ•°æ®å‘é€ä½¿èƒ½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ
+wire spi_tx_rdy;		//SPIæ•°æ®å‘é€å®Œæˆæ ‡å¿—ä½ï¼Œé«˜æœ‰æ•ˆ
+wire spi_rx_en;		//SPIæ•°æ®æ¥æ”¶ä½¿èƒ½ä¿¡å·ï¼Œé«˜æœ‰æ•ˆ
+wire spi_rx_rdy;		//SPIæ•°æ®æ¥æ”¶å®Œæˆæ ‡å¿—ä½ï¼Œé«˜æœ‰æ•ˆ
+wire[7:0] spi_tx_db;	//SPIæ•°æ®å‘é€å¯„å­˜å™¨
+wire[7:0] spi_rx_db;	//SPIæ•°æ®æ¥æ”¶å¯„å­˜å™¨
+
+
+//----------------------------------------------------------------
+//ä¾‹åŒ–SPIä¼ è¾“æ§åˆ¶æ¨¡å—
 spi_ctrl		uut_spictrl(
 					.clk(clk),
 					.rst_n(rst_n),
@@ -61,7 +64,7 @@ spi_ctrl		uut_spictrl(
 					.spi_rx_db(spi_rx_db)
 				);
 
-//Àı»¯SDÃüÁî¿ØÖÆÄ£¿é
+//ä¾‹åŒ–SDå‘½ä»¤æ§åˆ¶æ¨¡å—
 sd_ctrl			uut_sdctrl(
 					.clk(clk),
 					.rst_n(rst_n),
@@ -76,7 +79,9 @@ sd_ctrl			uut_sdctrl(
 					.sd_fifowr(sd_fifowr),
 					.sd_rd_en(sd_rd_en),
 					.sd_wr_en(sd_wr_en),
-					.sdwrad_clr(sdwrad_clr)
+					.sdwrad_clr(sdwrad_clr),
+					.ff_din(ff_din),
+					.sd_test(sd_test)
 				);
 
 endmodule
