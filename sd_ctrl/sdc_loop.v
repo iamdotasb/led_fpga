@@ -16,7 +16,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 module sdc_loop(
                 clk,rst_n,
-                spi_miso,spi_mosi,spi_clk,spi_cs_n				
+                spi_miso,spi_mosi,spi_clk,spi_cs_n,
+                led_run				
 );
 input clk;		//FPAG输入时钟信号50MHz
 input rst_n;	//FPGA输入复位信号
@@ -25,6 +26,7 @@ input spi_miso;		//SPI主机输入从机输出数据信号
 output spi_mosi;	//SPI主机输出从机输入数据信号
 output spi_clk;		//SPI时钟信号，由主机产生
 output spi_cs_n;	//SPI从设备使能信号，由主设备控制
+output led_run;
 
 wire[7:0] ffsdc_din;	//SD卡FIFO写入数据
 wire ffsdc_wrreq;		//SD卡FIFO写请求信号，高有效
@@ -115,7 +117,9 @@ sdcard_ctrl		uut_sdcartctrl(
 					.sd_fifowr(ffsdc_wrreq),
 					.sd_rd_en(sdc_rd_en),//add
 					.sd_wr_en(sdc_wr_en),
-					.sdwrad_clr(ffsdc_clr)
+					.sdwrad_clr(ffsdc_clr),
+					.ff_din(ffsdc_dout),
+					.sd_test(led_run)
 				);
 				
 endmodule
